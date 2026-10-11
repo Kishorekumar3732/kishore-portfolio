@@ -116,6 +116,7 @@ const LINKS = {
   resume: "/Kishore_Kumar_T_Resume.pdf",                        // <- put the PDF in /public with this name
 };
 const RESUME_NAME = "Kishore_Kumar_T_Resume.pdf";
+const LOGO_SRC = "/K-logo.svg"; // file lives in /public
 
 const socials = [
   { key: "email", label: "Email", href: LINKS.email },
@@ -134,6 +135,9 @@ const ICONS = {
 };
 
 /* ---------- small helpers ---------- */
+
+/* if an image fails to load, hide it so the coloured fallback behind it shows */
+const hideBroken = (e) => { e.currentTarget.style.display = "none"; };
 
 function Label({ n, children }) {
   return <div className="section-label"><span>{n}</span><i />{children}</div>;
@@ -155,6 +159,37 @@ function H({ as: Tag = "h2", lines, className = "" }) {
         </span>
       ))}
     </Tag>
+  );
+}
+
+/* typographic poster shown inside the expanding showreel box */
+const posterWords = ["DESIGN", "CODE", "MOTION", "BUILD"];
+function PosterRow({ cls }) {
+  const half = [...posterWords, ...posterWords];
+  return (
+    <div className={`poster-row ${cls}`}>
+      <div className="poster-track">
+        {[...half, ...half].map((w, i) => <span key={i}>{w}<b>✳</b></span>)}
+      </div>
+    </div>
+  );
+}
+function Poster() {
+  return (
+    <div className="poster" aria-hidden="true">
+      <span className="poster-meta pm-l">KK® / PORTFOLIO 2026</span>
+      <span className="poster-meta pm-r">FRONTEND · UI · MOTION</span>
+      <PosterRow cls="pr-1" />
+      <PosterRow cls="pr-2" />
+      <PosterRow cls="pr-3" />
+      <div className="poster-badge">
+        <svg viewBox="0 0 120 120">
+          <defs><path id="pcirc" d="M60,60 m-46,0 a46,46 0 1,1 92,0 a46,46 0 1,1 -92,0" /></defs>
+          <text><textPath href="#pcirc">CODE WITH INTENTION ✳ DESIGN FOR PEOPLE ✳</textPath></text>
+        </svg>
+        <i>✳</i>
+      </div>
+    </div>
   );
 }
 
@@ -246,9 +281,10 @@ function Cursor() {
     const yd = gsap.quickTo(dot.current, "y", { duration: 0.12, ease: "power3" });
     const xr = gsap.quickTo(ring.current, "x", { duration: 0.5, ease: "power3" });
     const yr = gsap.quickTo(ring.current, "y", { duration: 0.5, ease: "power3" });
-    let shown = false;
+    let shown = false, lx = 0, ly = 0;
 
     const move = (e) => {
+      lx = e.clientX; ly = e.clientY;
       if (!shown) {
         shown = true;
         gsap.set([dot.current, ring.current], { x: e.clientX, y: e.clientY });
@@ -259,8 +295,9 @@ function Cursor() {
     const over = (e) => {
       const t = e.target.closest?.("a,button,[data-cursor]");
       const r = ring.current;
-      if (!t) { r.classList.remove("is-link", "has-label"); return; }
+      if (!t) { r.classList.remove("is-link", "has-label"); gsap.to(dot.current, { scale: 1, duration: 0.2 }); return; }
       const txt = t.dataset.cursor;
+      gsap.to(dot.current, { scale: txt ? 0 : 1, duration: 0.2 });
       if (txt) { label.current.textContent = txt; r.classList.add("has-label"); r.classList.remove("is-link"); }
       else { r.classList.add("is-link"); r.classList.remove("has-label"); }
     };
@@ -269,6 +306,8 @@ function Cursor() {
     const down = () => ring.current.classList.add("is-down");
     const up = () => ring.current.classList.remove("is-down");
 
+    const refresh = () => { if (!shown) return; const el = document.elementFromPoint(lx, ly); if (el) over({ target: el }); };
+    window.addEventListener("scroll", refresh, { passive: true });
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseover", over);
     window.addEventListener("mousedown", down);
@@ -277,6 +316,7 @@ function Cursor() {
     document.addEventListener("mouseenter", enter);
     return () => {
       document.documentElement.classList.remove("has-cursor");
+      window.removeEventListener("scroll", refresh);
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseover", over);
       window.removeEventListener("mousedown", down);
@@ -426,7 +466,7 @@ function Pin({ p }) {
     return (
       <article className={`pin tilt ${p.theme}`} data-cursor="VIEW">
         <div className={`pin-media pm-${p.size}`}>
-          <img src={p.image} alt={`${p.name} visual preview`} loading="lazy" />
+          <img src={p.image} alt={`${p.name} visual preview`} loading="lazy" onError={hideBroken} />
           <span className="pin-num">{p.id}</span>
         </div>
         <div className="pin-body">
@@ -509,7 +549,7 @@ function Pin({ p }) {
 export default function App() {
   const root = useRef(null);
   const lenisRef = useRef(null);
-  const firstFilter = useRef(true);
+  const prevFilter = useRef("all");
   const [menuOpen, setMenuOpen] = useState(false);
   const [filter, setFilter] = useState("all");
 
@@ -520,7 +560,8 @@ export default function App() {
 
   /* re-animate + re-measure the board when the filter changes */
   useEffect(() => {
-    if (firstFilter.current) { firstFilter.current = false; return; }
+    if (prevFilter.current === filter) return;
+    prevFilter.current = filter;
     const els = root.current.querySelectorAll(".pin");
     gsap.fromTo(els, { y: 40, opacity: 0, scale: 0.96 }, { y: 0, opacity: 1, scale: 1, duration: 0.6, stagger: 0.05, ease: "power3.out", overwrite: "auto" });
     ScrollTrigger.refresh();
@@ -622,14 +663,14 @@ export default function App() {
 
       /* ----- masked headings ----- */
       qa(".split").forEach((h) => {
-        gsap.from(h.querySelectorAll(".line-in"), {
-          yPercent: 115, duration: 1.1, stagger: 0.09, ease: "power4.out",
+        gsap.fromTo(h.querySelectorAll(".line-in"), { yPercent: 140 }, {
+          yPercent: 0, duration: 1.1, stagger: 0.09, ease: "power4.out",
           scrollTrigger: { trigger: h, start: "top 88%", toggleActions: "play none none reverse" },
         });
       });
 
       qa(".reveal").forEach((el) => {
-        gsap.from(el, { y: 48, opacity: 0, duration: 0.9, ease: "power3.out", scrollTrigger: { trigger: el, start: "top 88%", toggleActions: "play none none reverse" } });
+        gsap.fromTo(el, { y: 48, opacity: 0 }, { y: 0, opacity: 1, duration: 0.9, ease: "power3.out", scrollTrigger: { trigger: el, start: "top 88%", toggleActions: "play none none reverse" } });
       });
 
       qa(".words").forEach((p) => {
@@ -647,7 +688,7 @@ export default function App() {
 
       /* ----- pins fly in as they enter the viewport ----- */
       qa(".pin").forEach((el) => {
-        gsap.from(el, { y: 70, opacity: 0, duration: 0.8, ease: "power3.out", scrollTrigger: { trigger: el, start: "top 94%", once: true } });
+        gsap.fromTo(el, { y: 70, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, ease: "power3.out", scrollTrigger: { trigger: el, start: "top 94%", once: true } });
       });
 
       /* ----- about: rotating badge + stats pop ----- */
@@ -657,7 +698,7 @@ export default function App() {
       /* ----- pinned scroll-expanding media (video-style scene) ----- */
       gsap.timeline({ scrollTrigger: { trigger: ".interlude-wrap", start: "top top", end: "bottom bottom", scrub: true } })
         .fromTo(".interlude-media", { clipPath: "inset(24% 32% 24% 32% round 16px)" }, { clipPath: "inset(0% 0% 0% 0% round 0px)", ease: "none" }, 0)
-        .fromTo(".interlude-media img, .interlude-media video", { scale: 1.5 }, { scale: 1, ease: "none" }, 0)
+        .fromTo(".interlude-media .poster, .interlude-media video", { scale: 1.35 }, { scale: 1, ease: "none" }, 0)
         .fromTo(".interlude-title", { opacity: 1, scale: 1 }, { opacity: 0, scale: 0.9, ease: "none", duration: 0.35 }, 0)
         .fromTo(".interlude-copy", { opacity: 0, y: 70 }, { opacity: 1, y: 0, ease: "none", duration: 0.5 }, 0.5);
 
@@ -754,7 +795,7 @@ export default function App() {
       <span className="progress-num">0%</span>
 
       <header className="site-nav">
-        <a className="wordmark magnetic" href="#home">KK<span>®</span></a>
+        <a className="logo magnetic" href="#home" aria-label="Kishore Kumar — back to top"><img className="logo-img" src={LOGO_SRC} alt="" /></a>
         <nav>
           <a href="#work">WORK</a>
           <a href="#story">MY STORY</a>
@@ -796,7 +837,7 @@ export default function App() {
           {fanCards.map((c) => (
             <a className="fan-card" href="#work" key={c.label} data-cursor="VIEW">
               <div className="fan-card-in" data-d={c.d}>
-                <img src={c.img} alt={c.label} loading="eager" />
+                <img src={c.img} alt={c.label} loading="eager" onError={hideBroken} />
                 <span>{c.label}</span>
               </div>
             </a>
@@ -888,7 +929,7 @@ export default function App() {
         <div className="interlude-media">
           {VIDEO_SRC
             ? <video src={VIDEO_SRC} poster={photos.hero} autoPlay muted loop playsInline />
-            : <img src={photos.hero} alt="Creative workspace with a laptop and digital tools" loading="lazy" />}
+            : <Poster />}
           <div className="interlude-shade" />
         </div>
         <div className="interlude-title"><Label n="04">HOW I THINK</Label><span>SCROLL ↓</span></div>
@@ -913,7 +954,7 @@ export default function App() {
           </div>
           <SocialLinks className="reveal" />
         </div>
-        <footer className="site-footer"><a className="wordmark" href="#home">KK<span>®</span></a><span>DESIGNED WITH INTENTION · BUILT WITH CURIOSITY</span><a href="#home">BACK TO TOP ↑</a></footer>
+        <footer className="site-footer"><a className="logo" href="#home" aria-label="Kishore Kumar — back to top"><img className="logo-img" src={LOGO_SRC} alt="" /></a><span>DESIGNED WITH INTENTION · BUILT WITH CURIOSITY</span><a href="#home">BACK TO TOP ↑</a></footer>
       </section>
     </main>
   );
