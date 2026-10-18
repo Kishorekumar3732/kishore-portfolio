@@ -169,14 +169,14 @@ function PosterRow({ cls }) {
   return (
     <div className={`poster-row ${cls}`}>
       <div className="poster-track">
-        {[...half, ...half].map((w, i) => <span key={i}>{w}<b>✳</b></span>)}
+        {[...half, ...half].map((w, i) => <span key={i}>{w}<b><img className="k-sep" src={LOGO_SRC} alt="" /></b></span>)}
       </div>
     </div>
   );
 }
 function Poster() {
   return (
-    <div className="poster" aria-hidden="true">
+    <div className="poster" data-nav="red" aria-hidden="true">
       <span className="poster-meta pm-l">KK® / PORTFOLIO 2026</span>
       <span className="poster-meta pm-r">FRONTEND · UI · MOTION</span>
       <PosterRow cls="pr-1" />
@@ -185,9 +185,9 @@ function Poster() {
       <div className="poster-badge">
         <svg viewBox="0 0 120 120">
           <defs><path id="pcirc" d="M60,60 m-46,0 a46,46 0 1,1 92,0 a46,46 0 1,1 -92,0" /></defs>
-          <text><textPath href="#pcirc">CODE WITH INTENTION ✳ DESIGN FOR PEOPLE ✳</textPath></text>
+          <text><textPath href="#pcirc" textLength="286" lengthAdjust="spacing">CODE WITH INTENTION • DESIGN FOR PEOPLE •</textPath></text>
         </svg>
-        <i>✳</i>
+        <img className="badge-logo" src={LOGO_SRC} alt="" />
       </div>
     </div>
   );
@@ -224,8 +224,131 @@ function Words({ text, className = "" }) {
   );
 }
 
+/* ===== YOUR PHOTOS (About section) =====
+   Put 4 images named like  "kishoreportfolio image 01.jpeg" ... "04.jpeg"  in EITHER:
+     - the /public folder (project root), or
+     - anywhere inside /src (e.g. src/assets).
+   .jpeg .jpg .png .webp all work, and a few spelling variants (image 1, image-01, image_01) are tried too. */
+const PHOTO_COUNT = 4;
+const PHOTO_EVERY = 4.5; // seconds each photo stays
+
+const srcImages = import.meta.glob("/src/**/*.{jpg,jpeg,png,webp,JPG,JPEG,PNG,WEBP}", { eager: true });
+const srcPhotoUrl = (n) => {
+  const re = new RegExp(`(^|\\D)0?${n}(?!\\d)`);
+  const hit = Object.entries(srcImages).find(([path]) => {
+    const file = path.split("/").pop().replace(/\.[^.]+$/, "").toLowerCase();
+    return file.includes("kishore") && re.test(file);
+  });
+  return hit ? (hit[1].default ?? hit[1]) : null;
+};
+const PHOTO_EXTS = ["jpeg", "jpg", "png", "webp", "JPEG", "JPG"];
+const photoCandidates = (n) => {
+  const bases = [`Kishore portfolio image 0${n}`, `Kishore portfolio image ${n}`, `kishore portfolio image 0${n}`, `kishoreportfolio image 0${n}`, `kishoreportfolio image ${n}`, `kishoreportfolio-image-0${n}`, `kishoreportfolio_image_0${n}`, `kishoreportfolio image-0${n}`, `kishoreportfolio0${n}`];
+  const pub = bases.flatMap((b) => PHOTO_EXTS.map((x) => encodeURI(`/${b}.${x}`)));
+  const found = srcPhotoUrl(n);
+  return found ? [found, ...pub] : pub;
+};
+const PHOTO_LISTS = Array.from({ length: PHOTO_COUNT }, (_, i) => photoCandidates(i + 1));
+
+function PhotoImg({ n }) {
+  const list = PHOTO_LISTS[n - 1];
+  const [k, setK] = useState(0);
+  if (k >= list.length) {
+    return <span className="ps-missing">PHOTO 0{n} NOT FOUND<br />add it to /public as<br />Kishore portfolio image 0{n}.jpeg</span>;
+  }
+  return <img className="ps-img" draggable="false" alt={`Kishore Kumar, photo ${n}`} src={list[k]} onError={() => setK(k + 1)} />;
+}
+
+/* photo changer: halftone colour wipe (red / yellow), zoom-settle, counter, progress bar */
+function PhotoSlider() {
+  const box = useRef(null);
+  const goRef = useRef(null);
+  const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    const el = box.current;
+    const bar = el.querySelector(".ps-bar i");
+    const strips = el.querySelectorAll(".ps-strip");
+    const stamp = el.querySelector(".ps-stamp");
+    gsap.set(stamp, { xPercent: -50, yPercent: -50, scale: 0, opacity: 0 });
+    gsap.set(strips, { scaleX: 0 });
+    let cur = 0, busy = false, paused = false, visible = true, auto = null, tl = null;
+
+    const startAuto = () => {
+      auto?.kill();
+      auto = gsap.fromTo(bar, { scaleX: 0 }, { scaleX: 1, duration: PHOTO_EVERY, ease: "none", onComplete: () => go((cur + 1) % PHOTO_COUNT) });
+      if (paused || !visible) auto.pause();
+    };
+
+    function go(next) {
+      if (busy || next === cur) return;
+      busy = true;
+      auto?.kill();
+      gsap.set(bar, { scaleX: 0 });
+      const slides = el.querySelectorAll(".ps-slide");
+      tl = gsap.timeline({ onComplete: () => { busy = false; startAuto(); } });
+      tl.set(strips, { transformOrigin: (i) => (i % 2 ? "100% 50%" : "0% 50%"), scaleX: 0 })
+        /* 1) six colour strips slide in from alternating sides */
+        .to(strips, { scaleX: 1, duration: 0.4, ease: "power4.inOut", stagger: 0.05 })
+        /* 2) the K logo stamps in, spinning */
+        .fromTo(stamp, { scale: 0.2, rotation: -120, opacity: 0 }, { scale: 1, rotation: 0, opacity: 1, duration: 0.45, ease: "back.out(1.7)" }, "-=0.3")
+        .add(() => { cur = next; setActive(next); })
+        .addLabel("swap")
+        /* 3) new photo settles in while the stamp spins away and the strips leave the other way */
+        .fromTo(slides[next], { scale: 1.25, rotate: -2 }, { scale: 1, rotate: 0, duration: 1, ease: "power3.out" }, "swap")
+        .to(stamp, { scale: 1.8, rotation: 90, opacity: 0, duration: 0.4, ease: "power3.in" }, "swap+=0.1")
+        .set(strips, { transformOrigin: (i) => (i % 2 ? "0% 50%" : "100% 50%") }, "swap+=0.1")
+        .to(strips, { scaleX: 0, duration: 0.45, ease: "power4.inOut", stagger: { each: 0.05, from: "end" } }, "swap+=0.1");
+    }
+    goRef.current = go;
+
+    const onClick = (e) => { if (!e.target.closest(".ps-chip")) go((cur + 1) % PHOTO_COUNT); };
+    const onEnter = () => { paused = true; auto?.pause(); };
+    const onLeave = () => { paused = false; if (!busy && visible) auto?.resume(); };
+    el.addEventListener("click", onClick);
+    el.addEventListener("mouseenter", onEnter);
+    el.addEventListener("mouseleave", onLeave);
+
+    const io = new IntersectionObserver(([en]) => {
+      visible = en.isIntersecting;
+      if (visible && !paused && !busy) auto?.resume(); else auto?.pause();
+    }, { threshold: 0.25 });
+    io.observe(el);
+
+    startAuto();
+    return () => {
+      auto?.kill(); tl?.kill(); io.disconnect();
+      el.removeEventListener("click", onClick);
+      el.removeEventListener("mouseenter", onEnter);
+      el.removeEventListener("mouseleave", onLeave);
+    };
+  }, []);
+
+  return (
+    <div className="ps" ref={box}>
+      {Array.from({ length: PHOTO_COUNT }, (_, i) => (
+        <div className={`ps-slide ${i === active ? "on" : ""}`} key={i}><PhotoImg n={i + 1} /></div>
+      ))}
+      <div className="ps-strips" aria-hidden="true">
+        {[0, 1, 2, 3, 4, 5].map((i) => <i key={i} className="ps-strip" />)}
+      </div>
+      <img className="ps-stamp" src={LOGO_SRC} alt="" />
+      <span className="ps-count">0{active + 1} / 0{PHOTO_COUNT}</span>
+      <div className="ps-ui">
+        <div className="ps-chips">
+          {Array.from({ length: PHOTO_COUNT }, (_, i) => (
+            <button key={i} className={`ps-chip ${i === active ? "on" : ""}`} aria-label={`Show photo ${i + 1}`}
+              onClick={(e) => { e.stopPropagation(); goRef.current?.(i); }}>0{i + 1}</button>
+          ))}
+        </div>
+        <div className="ps-bar"><i /></div>
+      </div>
+    </div>
+  );
+}
+
 /* Infinite marquee that speeds up / reverses with scroll velocity */
-function Marquee({ items, dir = 1, className = "" }) {
+function Marquee({ items, dir = 1, className = "", nav }) {
   const track = useRef(null);
   useEffect(() => {
     let x = 0, v = 0;
@@ -245,9 +368,9 @@ function Marquee({ items, dir = 1, className = "" }) {
   }, [dir]);
   const half = [...items, ...items, ...items];
   return (
-    <div className={`marquee ${className}`} aria-hidden="true">
+    <div className={`marquee ${className}`} data-nav={nav} aria-hidden="true">
       <div className="marquee-track" ref={track}>
-        {[...half, ...half].map((t, i) => <span key={i}>{t}<b>✳</b></span>)}
+        {[...half, ...half].map((t, i) => <span key={i}>{t}<b><img className="k-sep" src={LOGO_SRC} alt="" /></b></span>)}
       </div>
     </div>
   );
@@ -549,6 +672,7 @@ function Pin({ p }) {
 export default function App() {
   const root = useRef(null);
   const lenisRef = useRef(null);
+  const logoThemeRef = useRef(null);
   const prevFilter = useRef("all");
   const [menuOpen, setMenuOpen] = useState(false);
   const [filter, setFilter] = useState("all");
@@ -556,7 +680,7 @@ export default function App() {
   const visible = pins.filter((p) => filter === "all" || p.cats.includes(filter));
   const count = (f) => pins.filter((p) => p.type !== "cta" && (f === "all" || p.cats.includes(f))).length;
 
-  useEffect(() => { lenisRef.current?.[menuOpen ? "stop" : "start"](); }, [menuOpen]);
+  useEffect(() => { lenisRef.current?.[menuOpen ? "stop" : "start"](); logoThemeRef.current?.(); }, [menuOpen]);
 
   /* re-animate + re-measure the board when the filter changes */
   useEffect(() => {
@@ -579,9 +703,34 @@ export default function App() {
     const fanState = { intro: reduce ? 0 : 80, idle: 0, cur: 0 };
     layoutFan(fanEls, 0, fanState.intro);
 
+    /* logo: original colours on dark sections; a matching version where part of it would vanish */
+    const logoWrap = q(".logo-fixed");
+    const logoImg = q(".logo-fixed .logo-img");
+    const updateLogoTheme = () => {
+      let theme = "dark";
+      if (q(".menu.open")) theme = "light";
+      else {
+        const r = logoImg.getBoundingClientRect();
+        if (r.bottom < 0) return;                         // hidden above the screen: keep the current theme
+        for (const el of document.elementsFromPoint(r.left + r.width / 2, r.top + r.height / 2)) {
+          const t = el.closest("[data-nav]");
+          if (t) { theme = t.dataset.nav; break; }
+        }
+      }
+      logoWrap.dataset.theme = theme;
+    };
+    logoThemeRef.current = updateLogoTheme;
+    updateLogoTheme();
+    window.addEventListener("scroll", updateLogoTheme, { passive: true });
+    window.addEventListener("resize", updateLogoTheme);
+    cleanups.push(() => {
+      window.removeEventListener("scroll", updateLogoTheme);
+      window.removeEventListener("resize", updateLogoTheme);
+    });
+
     if (reduce) {
       q(".preloader").style.display = "none";
-      return;
+      return () => cleanups.forEach((f) => f());
     }
 
     /* smooth scroll */
@@ -591,7 +740,9 @@ export default function App() {
     lenis.on("scroll", (e) => {
       scroll.v = e.velocity;
       ScrollTrigger.update();
-      nav.classList.toggle("hide", e.direction === 1 && e.scroll > 240);
+      const hide = e.direction === 1 && e.scroll > 240;
+      nav.classList.toggle("hide", hide);
+      logoWrap.classList.toggle("hide", hide);
     });
     const raf = (t) => { lenis.raf(t * 1000); scroll.v *= 0.95; };
     gsap.ticker.add(raf);
@@ -630,7 +781,8 @@ export default function App() {
         .from(".ht-out", { opacity: 0, y: 40, duration: 1, stagger: 0.15, ease: "power3.out" }, "-=0.9")
         .to(fanState, { intro: 0, duration: 2.6, ease: "power4.out" }, "-=1.2")
         .from(".hero-meta", { opacity: 0, y: 20, duration: 0.8, stagger: 0.1 }, "-=0.8")
-        .from(".site-nav > *", { y: -20, opacity: 0, duration: 0.8, stagger: 0.1 }, "-=0.8");
+        .from(".site-nav > *, .logo-fixed > .logo", { y: -20, opacity: 0, duration: 0.8, stagger: 0.1 }, "-=0.8")
+        .add(updateLogoTheme);
 
       /* ----- hero: mouse parallax on the fanned cards + scroll-out ----- */
       const fans = qa(".fan-card-in").map((el) => ({
@@ -784,6 +936,18 @@ export default function App() {
   return (
     <main className="site" ref={root}>
       <Cursor />
+      <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true" focusable="false">
+        <defs>
+          {/* white part -> black, red stays red (for yellow / paper sections) */}
+          <filter id="logo-on-light" colorInterpolationFilters="sRGB">
+            <feColorMatrix type="matrix" values="0 -1.252 0 0 1.299  0 -0.252 0 0 0.299  0 -0.0985 0 0 0.1455  0 0 0 1 0" />
+          </filter>
+          {/* red part -> black, white stays white (for red sections) */}
+          <filter id="logo-on-red" colorInterpolationFilters="sRGB">
+            <feColorMatrix type="matrix" values="0 1.252 0 0 -0.252  0 1.252 0 0 -0.252  0 1.252 0 0 -0.252  0 0 0 1 0" />
+          </filter>
+        </defs>
+      </svg>
       <Scene3D />
 
       <div className="preloader">
@@ -794,8 +958,11 @@ export default function App() {
       <div className="progress" />
       <span className="progress-num">0%</span>
 
-      <header className="site-nav">
+      <div className="logo-fixed" data-theme="dark">
         <a className="logo magnetic" href="#home" aria-label="Kishore Kumar — back to top"><img className="logo-img" src={LOGO_SRC} alt="" /></a>
+      </div>
+
+      <header className="site-nav">
         <nav>
           <a href="#work">WORK</a>
           <a href="#story">MY STORY</a>
@@ -821,7 +988,7 @@ export default function App() {
       </div>
 
       {/* ---------- HERO: poster ---------- */}
-      <section className="hero" id="home">
+      <section className="hero" id="home" data-nav="dark">
         <div className="hero-meta hero-meta-l">
           WELCOME TO MY<br />
           <small>Frontend development, thoughtful interfaces and interactive experiences — built with curiosity and intention.</small>
@@ -845,10 +1012,10 @@ export default function App() {
         </div>
       </section>
 
-      <Marquee className="ticker" items={["CODE WITH INTENTION", "DESIGN FOR PEOPLE", "MAKE IT MATTER"]} />
+      <Marquee className="ticker" nav="red" items={["CODE WITH INTENTION", "DESIGN FOR PEOPLE", "MAKE IT MATTER"]} />
 
       {/* ---------- ABOUT: yellow poster ---------- */}
-      <section className="about section-pad" id="about">
+      <section className="about section-pad" id="about" data-nav="light">
         <div className="about-grid">
           <div className="about-left">
             <Label n="01">A BIT ABOUT ME</Label>
@@ -864,16 +1031,15 @@ export default function App() {
             <ResumeButton className="reveal" />
           </div>
           <div className="about-right reveal">
-            <div className="about-photo tilt" data-cursor="HELLO">
-              <div className="parallax"><img src={photos.portrait} alt="Portrait placeholder for the portfolio owner" loading="lazy" /></div>
-              <span className="photo-note">REPLACE WITH YOUR OWN PHOTO</span>
+            <div className="about-photo tilt" data-cursor="NEXT">
+              <PhotoSlider />
             </div>
             <div className="badge" aria-hidden="true">
               <svg viewBox="0 0 120 120">
                 <defs><path id="circ" d="M60,60 m-46,0 a46,46 0 1,1 92,0 a46,46 0 1,1 -92,0" /></defs>
-                <text><textPath href="#circ">OPEN TO OPPORTUNITIES ✳ OPEN TO OPPORTUNITIES ✳</textPath></text>
+                <text><textPath href="#circ" textLength="286" lengthAdjust="spacing">OPEN TO OPPORTUNITIES • OPEN TO OPPORTUNITIES •</textPath></text>
               </svg>
-              <i>✳</i>
+              <img className="badge-logo" src={LOGO_SRC} alt="" />
             </div>
           </div>
         </div>
@@ -881,7 +1047,7 @@ export default function App() {
 
       {/* ---------- MOMENTS: horizontal pinned ---------- */}
       <div className="pin-wrap moments-wrap">
-      <section className="moments" id="story">
+      <section className="moments" id="story" data-nav="dark">
         <div className="moments-head">
           <Label n="02">MY STORY</Label>
           <span className="moments-count">01 / 0{moments.length}</span>
@@ -904,7 +1070,7 @@ export default function App() {
       </div>
 
       {/* ---------- WORK: pin board ---------- */}
-      <section className="work section-pad" id="work">
+      <section className="work section-pad" id="work" data-nav="light">
         <div className="work-heading">
           <Label n="03">SELECTED WORK</Label>
           <H lines={["PROOF IN THE", "*projects.*"]} />
@@ -925,7 +1091,7 @@ export default function App() {
 
       {/* ---------- SHOWREEL: pinned expanding media ---------- */}
       <div className="pin-wrap interlude-wrap">
-      <section className="interlude">
+      <section className="interlude" data-nav="dark">
         <div className="interlude-media">
           {VIDEO_SRC
             ? <video src={VIDEO_SRC} poster={photos.hero} autoPlay muted loop playsInline />
@@ -940,10 +1106,10 @@ export default function App() {
       </section>
       </div>
 
-      <Marquee className="skills-marquee" dir={-1} items={skills} />
+      <Marquee className="skills-marquee" nav="red" dir={-1} items={skills} />
 
       {/* ---------- CONTACT ---------- */}
-      <section className="contact" id="contact">
+      <section className="contact" id="contact" data-nav="dark">
         <div className="contact-inner">
           <Label n="05">THE NEXT CHAPTER</Label>
           <p className="contact-small">HAVE A PROJECT OR AN OPPORTUNITY?</p>
