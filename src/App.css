@@ -489,26 +489,90 @@ h1, h2, h3, h4 { color: inherit; }
 /* =====================================================================
    LOGO (public/K-logo.svg) — replaces the "KK®" text wordmark
    ===================================================================== */
-
 .logo { display: inline-flex; align-items: center; }
-
-.logo-img {
-  display: block;
-  width: auto;
-  height: 40px;
-  filter: var(--logo-filter, none);
-  transition: filter .3s ease, transform .4s cubic-bezier(.2, .7, .2, 1);
-}
-
+.logo-img { display: block; width: auto; height: 40px; /* shown in one colour that adapts to the section behind it */
+  filter: var(--logo-filter, brightness(0) invert(1)); transition: transform .4s cubic-bezier(.2, .7, .2, 1); }
 .logo:hover .logo-img { transform: rotate(-8deg) scale(1.08); }
-
-/* Invert logo when another element is hovered */
-body:has(.invert-trigger:hover) .logo-img {
-  filter: brightness(0) invert(1);
-}
-
 .site-footer .logo-img { height: 44px; }
+@media (max-width: 620px) { .logo-img { height: 34px; } }
 
-@media (max-width: 620px) {
-  .logo-img { height: 34px; }
-}
+/* =====================================================================
+   LOGO v2: original colours, adaptive on light / red sections
+   ===================================================================== */
+.logo-img { filter: none; }
+.logo-fixed { position: fixed; z-index: 101; top: 0; left: 4%; height: 78px; display: flex; align-items: center; transition: transform .6s cubic-bezier(.7, 0, .2, 1); }
+.logo-fixed.hide { transform: translateY(-110%); }
+.logo-fixed[data-theme="light"] .logo-img { filter: url(#logo-on-light); }
+.logo-fixed[data-theme="red"] .logo-img { filter: url(#logo-on-red); }
+.site-nav { justify-content: flex-end; }
+.interlude-shade { pointer-events: none; }
+@media (max-width: 620px) { .logo-fixed { height: 67px; } }
+
+/* =====================================================================
+   ABOUT PHOTO CHANGER (4 photos): halftone colour wipe + crop marks + counter
+   ===================================================================== */
+.ps { position: absolute; inset: 0; overflow: hidden; background: linear-gradient(135deg, var(--red), var(--yellow)); }
+.ps-slide { position: absolute; inset: 0; opacity: 0; }
+.ps-slide.on { opacity: 1; z-index: 1; }
+.ps-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 22%; user-select: none; filter: contrast(1.05) saturate(1.05); transition: filter .5s; }
+
+/* the wipe between photos: red / yellow panel with halftone dots */
+.ps-wipe { position: absolute; inset: 0; z-index: 4; pointer-events: none; clip-path: inset(100% 0 0 0);
+  background: radial-gradient(rgba(12, 12, 12, .28) 1.4px, transparent 1.9px) 0 0 / 8px 8px, var(--wipe, var(--red)); }
+
+/* hover: same duotone wipe + crop marks as the other images */
+.ps::before { content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; mix-blend-mode: multiply; clip-path: inset(100% 0 0 0); transition: clip-path .65s cubic-bezier(.7, 0, .2, 1);
+  background: radial-gradient(circle at center, rgba(0, 0, 0, .6) 1.3px, transparent 1.8px) 0 0 / 7px 7px, var(--red); }
+.ps::after { content: ""; position: absolute; inset: 14px; z-index: 3; pointer-events: none; opacity: 0; transform: scale(1.12); transition: opacity .4s, transform .65s cubic-bezier(.2, .7, .2, 1); --c: #fff; --l: 22px; --w: 2px;
+  background:
+    linear-gradient(var(--c), var(--c)) top left / var(--l) var(--w) no-repeat,
+    linear-gradient(var(--c), var(--c)) top left / var(--w) var(--l) no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / var(--l) var(--w) no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / var(--w) var(--l) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / var(--l) var(--w) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / var(--w) var(--l) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / var(--l) var(--w) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / var(--w) var(--l) no-repeat; }
+.about-photo:hover .ps::before { clip-path: inset(0 0 0 0); }
+.about-photo:hover .ps::after { opacity: 1; transform: scale(1); }
+.about-photo:hover .ps-img { filter: grayscale(1) contrast(1.2) brightness(1.05); }
+
+.ps-count { position: absolute; z-index: 5; top: 7%; left: 50%; transform: translateX(-50%); padding: 7px 12px; border-radius: 99px; background: var(--ink); color: var(--paper); font: 500 10px var(--mono); letter-spacing: 1.5px; pointer-events: none; }
+.ps-ui { position: absolute; z-index: 5; left: 0; right: 0; bottom: 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; pointer-events: none; }
+.ps-chips { display: flex; gap: 6px; pointer-events: auto; }
+.ps-chip { padding: 8px 12px; border-radius: 99px; background: rgba(12, 12, 12, .72); color: var(--paper); font: 500 10px var(--mono); letter-spacing: 1px; transition: background .25s, color .25s, transform .3s; }
+.ps-chip:hover { transform: translateY(-3px); background: var(--paper); color: var(--ink); }
+.ps-chip.on { background: var(--yellow); color: var(--ink); }
+.ps-bar { width: min(64%, 200px); height: 3px; border-radius: 3px; background: rgba(239, 238, 233, .35); overflow: hidden; }
+.ps-bar i { display: block; height: 100%; background: var(--paper); transform: scaleX(0); transform-origin: 0 50%; }
+
+/* =====================================================================
+   K-logo separators + badges (replace the asterisk symbols), badge text fit
+   ===================================================================== */
+.k-sep { display: block; height: 1em; width: auto; }
+.ticker .k-sep, .skills-marquee .k-sep, .poster-track .k-sep { filter: url(#logo-on-red); }   /* red background: red part -> black */
+.ticker b, .skills-marquee b, .poster-track b { display: inline-flex; align-items: center; }
+
+.badge-logo { position: relative; z-index: 1; width: 34%; height: auto; filter: url(#logo-on-light); } /* paper / yellow badge */
+.badge text, .poster-badge text { font: 500 8px var(--mono); letter-spacing: 0; fill: var(--ink); }
+
+/* missing-photo helper text */
+.ps-missing { position: absolute; inset: 0; display: grid; place-content: center; padding: 20px; text-align: center; font: 500 10px/1.9 var(--mono); letter-spacing: 1px; color: var(--ink); }
+
+/* =====================================================================
+   v3: smaller K-logo separators (same size as the old symbol) + new photo transition
+   ===================================================================== */
+.k-sep { display: block; width: auto; height: .6em; }
+.ticker .k-sep { height: .9em; }
+.skills-marquee .k-sep { height: .6em; }
+.poster-track .k-sep { height: .6em; }
+.badge-logo { width: 30%; max-width: 30%; }
+
+/* photo transition: strips + K stamp (replaces the old single wipe) */
+.ps-strips { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; pointer-events: none; }
+.ps-strip { display: block; flex: 0 0 calc(16.667% + 1px); transform: scaleX(0); will-change: transform;
+  background: radial-gradient(rgba(12, 12, 12, .25) 1.4px, transparent 1.9px) 0 0 / 8px 8px, var(--red); }
+.ps-strip:nth-child(3n + 2) { background-color: var(--yellow); background-image: radial-gradient(rgba(12, 12, 12, .22) 1.4px, transparent 1.9px); background-size: 8px 8px; }
+.ps-strip:nth-child(3n) { background: radial-gradient(rgba(239, 238, 233, .16) 1.4px, transparent 1.9px) 0 0 / 8px 8px, var(--ink); }
+.ps-stamp { position: absolute; z-index: 4; left: 50%; top: 50%; width: 38%; height: auto; margin: 0; opacity: 0; pointer-events: none;
+  filter: brightness(0) invert(1) drop-shadow(5px 5px 0 #0c0c0c); }
